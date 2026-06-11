@@ -1,0 +1,50 @@
+#!/bin/busybox sh
+
+# 挂载必要的虚拟文件系统
+/bin/busybox mount -t proc none /proc
+/bin/busybox mount -t sysfs none /sys
+/bin/busybox mount -t devtmpfs none /dev
+
+# ==========================================
+# 网络配置（必须在 exec 之前）
+# ==========================================
+
+echo "=== Configuring network ==="
+
+# 启用回环接口
+/bin/busybox ip link set lo up
+
+# 启用 eth0
+/bin/busybox ip link set eth0 up
+
+# 配置 IP 地址
+/bin/busybox ip addr add 10.0.2.15/24 dev eth0
+
+# 配置默认网关
+/bin/busybox ip route add default via 10.0.2.2
+
+# 配置 DNS
+mkdir -p /etc
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+echo "nameserver 8.8.4.4" >> /etc/resolv.conf
+
+echo "=== Network info ==="
+/bin/busybox ip addr show eth0
+/bin/busybox ip route show
+echo "===================="
+
+# ==========================================
+# 欢迎信息
+# ==========================================
+
+echo ""
+echo "========================================="
+echo "  Your custom Linux kernel is running!"
+echo "  Test: ping 10.0.2.2"
+echo "========================================="
+echo ""
+
+# ==========================================
+# 启动 shell（这是最后一行）
+# ==========================================
+exec /bin/busybox sh
