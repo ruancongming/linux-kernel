@@ -1,0 +1,31 @@
+# 独立编译目录
+build-linux-1.6
+
+
+linux-6.6/arch/x86/boot/bzImage
+linux-6.6/vmlinux
+linux-6.6/*.o
+linux-6.6/*.a
+linux-6.6/.config
+linux-6.6/.config.old
+linux-6.6/Module.symvers
+linux-6.6/System.map
+
+# 编译临时文件
+linux-6.6/tags
+linux-6.6/TAGS
+linux-6.6/cscope*
+linux-6.6/nohup.out
+
+# initrd 产物
+linux-6.6/initrd-*.img
+
+# 开发工具临时文件
+*.swp
+*.swo
+*~
+.DS_Store
+
+# WSL 相关
+*.exe
+*.dll
