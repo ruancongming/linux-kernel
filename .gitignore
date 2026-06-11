@@ -1,5 +1,5 @@
 # 独立编译目录
-build-linux-1.6
+build-linux
 
 
 linux-6.6/arch/x86/boot/bzImage
