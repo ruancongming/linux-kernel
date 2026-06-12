@@ -10,6 +10,7 @@
  *  Simplified starting of init:  Michael A. Griffith <grif@acm.org>
  */
 
+#include "linux/kern_levels.h"
 #define DEBUG		/* Enable initcall_debug */
 
 #include <linux/types.h>
@@ -1064,9 +1065,16 @@ void start_kernel(void)
 	arch_post_acpi_subsys_init();
 	kcsan_init();
 
-	/* Do the rest non-__init'ed, we're now alive */
-	arch_call_rest_init();
+	printk(KERN_INFO "++++++++++++++++++++++++\n");
+	printk(KERN_INFO "++++++++++++++++++++++++\n");
+	printk(KERN_INFO "RCM Linux kernel is booting\n");
+	printk(KERN_INFO "++++++++++++++++++++++++\n");
+	printk(KERN_INFO "++++++++++++++++++++++++\n");
 
+	//panic("!!!! STOP HERE !!!!"); //调试手段 强制停止运行
+
+	/* Do the rest non-__init'ed, we're now alive */
+	arch_call_rest_init();  //Note：这里会调用rest_init() 创建init进程 然后init进程接管控制权 不再返回到本函数里 这后面的代码不会被执行到
 	/*
 	 * Avoid stack canaries in callers of boot_init_stack_canary for gcc-10
 	 * and older.

@@ -1217,6 +1217,7 @@ int icmp_rcv(struct sk_buff *skb)
 		goto error;
 
 	icmph = icmp_hdr(skb);
+	printk(KERN_WARNING "ICMP recv: type=%d code=%d from %pI4\n",icmph->type, icmph->code, &ip_hdr(skb)->saddr);
 
 	ICMPMSGIN_INC_STATS(net, icmph->type);
 
