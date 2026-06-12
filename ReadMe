@@ -1,0 +1,8 @@
+目标:基于Linux 6.6版本内核源码,完成Linux内核网络模块相关功能学习调试
+
+开发环境: 
+    1. Windows系统 PC (作为宿主机)
+    2. Windows Subsystem for Linux (WSL虚拟机作为开发环境, 编译源码,制作内核镜像等)
+    3. WSL上的Qemu (虚拟机运行环境,运行Linux内核)
+    4. Linux内核源码 (6.6版本内核源码)
+
