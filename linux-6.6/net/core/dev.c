@@ -4274,7 +4274,7 @@ struct netdev_queue *netdev_core_pick_tx(struct net_device *dev,
  * * positive qdisc return code	- NET_XMIT_DROP etc.
  * * negative errno		- other errors
  */
-int __dev_queue_xmit(struct sk_buff *skb, struct net_device *sb_dev)
+int __dev_queue_xmit(struct sk_buff *skb, struct net_device *sb_dev) //ruancm：网络数据包的出口 上层应用待发送的数据包被送到这里找到对应网络驱动 发送到网络中
 {
 	struct net_device *dev = skb->dev;
 	struct netdev_queue *txq = NULL;
@@ -5338,7 +5338,7 @@ static inline int nf_ingress(struct sk_buff *skb, struct packet_type **pt_prev,
 }
 
 static int __netif_receive_skb_core(struct sk_buff **pskb, bool pfmemalloc,
-				    struct packet_type **ppt_prev)
+				    struct packet_type **ppt_prev)  //Ruancm：网络处理模块核心函数
 {
 	struct packet_type *ptype, *pt_prev;
 	rx_handler_func_t *rx_handler;
@@ -5354,10 +5354,11 @@ static int __netif_receive_skb_core(struct sk_buff **pskb, bool pfmemalloc,
 
 	orig_dev = skb->dev;
 
+	// 重置IP层 传输层 MAC层的头部指针和长度 提高后续处理效率
 	skb_reset_network_header(skb);
 	if (!skb_transport_header_was_set(skb))
 		skb_reset_transport_header(skb);
-	skb_reset_mac_len(skb);
+	skb_reset_mac_len(skb);  
 
 	pt_prev = NULL;
 
@@ -5366,6 +5367,10 @@ another_round:
 
 	__this_cpu_inc(softnet_data.processed);
 
+	//XDP：eXpress Data Path，Linux内核中的一个高性能数据包处理框架，
+	//允许在网络驱动程序中直接处理原始以太网数据包，而无需将它们传递到内核的网络协议栈中。
+	//这可以显著提高数据包处理的效率和性能，特别是在高流量环境中。
+	//在Ddos防御 负载均衡 包过滤的场景中 提升性能
 	if (static_branch_unlikely(&generic_xdp_needed_key)) {
 		int ret2;
 
@@ -5379,6 +5384,7 @@ another_round:
 		}
 	}
 
+	//剥离VLAN标签 802.1Q 802.1AD信息。IP层不关心VLAN信息，传输层的头部指针和长度会被重置为剥离VLAN标签后的数据包内容
 	if (eth_type_vlan(skb->protocol)) {
 		skb = skb_vlan_untag(skb);
 		if (unlikely(!skb))
@@ -5391,6 +5397,7 @@ another_round:
 	if (pfmemalloc)
 		goto skip_taps;
 
+	// 监听器和协议处理函数的调用顺序：全局监听器 -> 设备特定监听器 将skb数据deliver_skb 
 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
 		if (pt_prev)
 			ret = deliver_skb(skb, pt_prev, orig_dev);
@@ -5405,6 +5412,9 @@ another_round:
 
 skip_taps:
 #ifdef CONFIG_NET_INGRESS
+	// TC ingress 过滤器和网络协议栈的交互
+	// TC ingress 过滤器在数据包进入网络协议栈之前对其进行处理和过滤。
+	// TC ingress过滤器可以基于各种条件（如源IP地址、目的IP地址、协议类型等）来决定是否允许数据包通过，或者对其进行修改。
 	if (static_branch_unlikely(&ingress_needed_key)) {
 		bool another = false;
 
@@ -5426,6 +5436,8 @@ skip_classify:
 	if (pfmemalloc && !skb_pfmemalloc_protocol(skb))
 		goto drop;
 
+	// VLAN标签的处理：如果数据包具有VLAN标签，首先尝试通过vlan_do_receive函数找到对应的VLAN设备进行处理。
+	// 如果找不到对应的VLAN设备，或者VLAN ID为0但无法找到对应的设备，则将数据包标记为PACKET_OTHERHOST，表示该数据包不属于本地主机。
 	if (skb_vlan_tag_present(skb)) {
 		if (pt_prev) {
 			ret = deliver_skb(skb, pt_prev, orig_dev);
@@ -5437,6 +5449,10 @@ skip_classify:
 			goto out;
 	}
 
+	// 虚拟设备核心机制
+	// 设备特定的接收处理函数：如果网络设备注册了一个接收处理函数（rx_handler），则调用该函数来处理数据包。
+	// 比如网桥设备 举例：当前网络数据是从eth0网卡进入的  然后eth0添加到网桥br0中  
+	// 那么br0就会注册一个rx_handler来处理从eth0进入的数据包 也就是说数据在进入IP层之前会先被br0的rx_handler处理掉
 	rx_handler = rcu_dereference(skb->dev->rx_handler);
 	if (rx_handler) {
 		if (pt_prev) {
@@ -5498,6 +5514,7 @@ check_vlan_id:
 
 	type = skb->protocol;
 
+	// 协议分发：根据数据包的协议类型（如IP、ARP等）将其分发到相应的协议处理函数进行处理。
 	/* deliver only exact match when indicated */
 	if (likely(!deliver_exact)) {
 		deliver_ptype_list_skb(skb, &pt_prev, orig_dev, type,
@@ -5643,7 +5660,7 @@ static void __netif_receive_skb_list_core(struct list_head *head, bool pfmemallo
 	__netif_receive_skb_list_ptype(&sublist, pt_curr, od_curr);
 }
 
-static int __netif_receive_skb(struct sk_buff *skb)
+static int __netif_receive_skb(struct sk_buff *skb) //Ruancm：网络数据包处理
 {
 	int ret;
 
@@ -5727,17 +5744,17 @@ static int generic_xdp_install(struct net_device *dev, struct netdev_bpf *xdp)
 	return ret;
 }
 
-static int netif_receive_skb_internal(struct sk_buff *skb)
+static int netif_receive_skb_internal(struct sk_buff *skb)  //Ruancm：网络数据包核心处理函数
 {
 	int ret;
 
 	net_timestamp_check(READ_ONCE(netdev_tstamp_prequeue), skb);
 
-	if (skb_defer_rx_timestamp(skb))
+	if (skb_defer_rx_timestamp(skb)) //Ruancm：如果skb需要延迟时间戳 就直接把skb放到协议栈中 让协议栈来处理时间戳
 		return NET_RX_SUCCESS;
 
 	rcu_read_lock();
-#ifdef CONFIG_RPS
+#ifdef CONFIG_RPS //Ruancm：如果开启了RPS功能 就把数据包放到对应CPU的队列中 让对应CPU来处理数据包
 	if (static_branch_unlikely(&rps_needed)) {
 		struct rps_dev_flow voidflow, *rflow = &voidflow;
 		int cpu = get_rps_cpu(skb->dev, skb, &rflow);
@@ -5802,7 +5819,7 @@ void netif_receive_skb_list_internal(struct list_head *head)
  *	NET_RX_SUCCESS: no congestion
  *	NET_RX_DROP: packet was dropped
  */
-int netif_receive_skb(struct sk_buff *skb)
+int netif_receive_skb(struct sk_buff *skb)  //ruancm：网络数据包入口函数 网络驱动收到数据包后 会调用这个函数来处理数据包
 {
 	int ret;
 
