@@ -453,7 +453,7 @@ static int ip_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
 /*
  * 	Main IP Receive routine.
  */
-static struct sk_buff *ip_rcv_core(struct sk_buff *skb, struct net *net)
+static struct sk_buff *ip_rcv_core(struct sk_buff *skb, struct net *net) // Ruancm:验证IP数据包的合法性
 {
 	const struct iphdr *iph;
 	int drop_reason;
